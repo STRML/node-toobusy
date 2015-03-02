@@ -36,7 +36,7 @@ describe('toobusy()', function() {
       while ((new Date() - start) < 250) {
         for (var i = 0; i < 1e5;) i++;
       }
-      setTimeout(load, 0);
+      setTimeout(load, 100);
     }
     load();
   });
