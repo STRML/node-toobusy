@@ -89,6 +89,22 @@ describe('toobusy()', function() {
     }
     load();
   });
+
+  it('should emit lag events to subscribed clients', function (done) {
+    var calledDone = false;
+
+    toobusy.onLag(function (lag) {
+      should.exist(lag);
+      lag.should.be.above(1);
+
+      if(!calledDone) {
+        calledDone = true;
+        done();
+      }
+    });
+
+    tightWork(100);
+  });
 });
 
 describe('smoothingFactor', function() {

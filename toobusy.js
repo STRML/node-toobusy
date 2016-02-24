@@ -1,10 +1,13 @@
 'use strict';
 
+var events = require('events');
+
 //
 // Constants
 //
 var STANDARD_HIGHWATER = 70;
 var STANDARD_INTERVAL = 500;
+var LAG_EVENT = "LAG_EVENT";
 
 // A dampening factor.  When determining average calls per second or
 // current lag, we weigh the current value against the previous value 2:1
@@ -23,6 +26,7 @@ var smoothingFactor = SMOOTHING_FACTOR;
 var currentLag = 0;
 var checkInterval;
 
+var eventEmitter = new events.EventEmitter();
 
 /**
  * Main export function.
@@ -121,6 +125,10 @@ toobusy.started = function() {
   return !!checkInterval;
 };
 
+toobusy.onLag = function(fn){
+  eventEmitter.on(LAG_EVENT, fn);
+};
+
 /**
  * Private - starts checking lag.
  */
@@ -132,6 +140,11 @@ function start() {
     // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
     currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
     lastTime = now;
+
+    if (currentLag > 0) {
+      eventEmitter.emit(LAG_EVENT, currentLag);
+    }
+
   }, interval);
 
   // Don't keep process open just for this timer.
