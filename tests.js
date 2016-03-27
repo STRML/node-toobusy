@@ -92,11 +92,11 @@ describe('toobusy()', function() {
 
   describe('lag events', function () {
     it('should not emit lag events if the lag is less than the configured threshold',
-        testLagEvent(50, 25, false));
+        testLagEvent(100, 50, false));
     it('should emit lag events if the lag is greater than the configured threshold',
-        testLagEvent(25, 50, true));
+        testLagEvent(50, 100, true));
     it('should emit lag events if lag occurs and no threshold is specified',
-        testLagEvent(undefined, 50, true));
+        testLagEvent(undefined, 100, true));
 
     function testLagEvent(threshold, work, expectFire) {
       return function (done) {
@@ -136,6 +136,9 @@ describe('toobusy()', function() {
 });
 
 describe('smoothingFactor', function() {
+  //Sometimes the default 2s timeout is hit on this suite, raise to 10s.
+  this.timeout(10 * 1000);
+
   beforeEach(function() {
     toobusy.maxLag(10);
     toobusy.interval(250);
