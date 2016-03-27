@@ -25,7 +25,7 @@ var interval = STANDARD_INTERVAL;
 var smoothingFactor = SMOOTHING_FACTOR;
 var currentLag = 0;
 var checkInterval;
-
+var lagEventThreshold = -1;
 var eventEmitter = new events.EventEmitter();
 
 /**
@@ -125,7 +125,20 @@ toobusy.started = function() {
   return !!checkInterval;
 };
 
-toobusy.onLag = function(fn){
+/**
+ * Registers an event listener for lag events,
+ * optionally specify a minimum value threshold for events being emitted
+ * @param {Function}  fn  Function of form onLag(value: number) => void
+ * @param {number=0}  threshold Optional minimum lag value for events to be emitted
+ */
+toobusy.onLag = function (fn, threshold) {
+
+  if (typeof threshold === "number") {
+    lagEventThreshold = threshold;
+  } else {
+    lagEventThreshold = 0;
+  }
+
   eventEmitter.on(LAG_EVENT, fn);
 };
 
@@ -141,7 +154,7 @@ function start() {
     currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
     lastTime = now;
 
-    if (currentLag > 0) {
+    if (lagEventThreshold !== -1 && currentLag > lagEventThreshold) {
       eventEmitter.emit(LAG_EVENT, currentLag);
     }
 

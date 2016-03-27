@@ -90,20 +90,48 @@ describe('toobusy()', function() {
     load();
   });
 
-  it('should emit lag events to subscribed clients', function (done) {
-    var calledDone = false;
+  describe('lag events', function () {
+    it('should not emit lag events if the lag is less than the configured threshold',
+        testLagEvent(50, 25, false));
+    it('should emit lag events if the lag is greater than the configured threshold',
+        testLagEvent(25, 50, true));
+    it('should emit lag events if lag occurs and no threshold is specified',
+        testLagEvent(undefined, 50, true));
 
-    toobusy.onLag(function (lag) {
-      should.exist(lag);
-      lag.should.be.above(1);
+    function testLagEvent(threshold, work, expectFire) {
+      return function (done) {
+        var calledDone = false;
 
-      if(!calledDone) {
-        calledDone = true;
-        done();
+        toobusy.onLag(function (lag) {
+          if (calledDone) {
+            return;
+          }
+
+          if (!expectFire) {
+            calledDone = true;
+            done(new Error('lag event fired unexpectedly'));
+            return;
+          }
+
+          should.exist(lag);
+          lag.should.be.above(threshold || 0);
+
+          calledDone = true;
+          done();
+        }, threshold);
+
+        if (!expectFire) {
+          setTimeout(function () {
+            if (!calledDone) {
+              calledDone = true;
+              done();
+            }
+          }, work + threshold);
+        }
+
+        tightWork(work);
       }
-    });
-
-    tightWork(100);
+    }
   });
 });
 
