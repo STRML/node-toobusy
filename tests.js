@@ -3,8 +3,8 @@ var should = require('should');
 var toobusy = require('./');
 
 function tightWork(duration) {
-  var start = new Date();
-  while ((new Date() - start) < duration) {
+  var start = Date.now();
+  while ((Date.now() - start) < duration) {
     for (var i = 0; i < 1e5;) i++;
   }
 }
@@ -172,7 +172,7 @@ describe('smoothingFactor', function() {
       }
       cycles_to_toobusy++;
       tightWork(100); // in 3 ticks, will overshoot by ~50ms, above 2*10ms
-      setTimeout(load, 0);
+      setImmediate(load);
     }
 
     load();
@@ -188,7 +188,7 @@ describe('smoothingFactor', function() {
       }
       cycles_to_toobusy++;
       tightWork(100);
-      setTimeout(load, 0);
+      setImmediate(load);
     }
 
     load();
