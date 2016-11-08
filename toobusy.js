@@ -150,10 +150,14 @@ function start() {
     var now = Date.now();
     var lag = now - lastTime;
     lag = Math.max(0, lag - interval);
+    
+    // Reverse the factor for lag decrement
+    var factor = lag < currentLag ? 1 - smoothingFactor : smoothingFactor;
+    
     // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
-    currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
+    currentLag = factor * Math.min(lag, highWater * 2) + (1 - factor) * currentLag;
     lastTime = now;
-
+    
     if (lagEventThreshold !== -1 && currentLag > lagEventThreshold) {
       eventEmitter.emit(LAG_EVENT, currentLag);
     }
