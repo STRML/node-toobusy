@@ -91,6 +91,9 @@ describe('toobusy()', function() {
   });
 
   describe('lag events', function () {
+    //Sometimes the default 2s timeout is hit on this suite, raise to 10s.
+    this.timeout(10 * 1000);
+
     it('should not emit lag events if the lag is less than the configured threshold',
         testLagEvent(100, 50, false));
     it('should emit lag events if the lag is greater than the configured threshold',
@@ -140,6 +143,7 @@ describe('smoothingFactor', function() {
   this.timeout(10 * 1000);
 
   beforeEach(function() {
+    toobusy.reset();
     toobusy.maxLag(10);
     toobusy.interval(250);
   });
@@ -147,26 +151,23 @@ describe('smoothingFactor', function() {
     toobusy.maxLag(70);
     toobusy.interval(500);
   });
-  it('should default to 1/3', function(done) {
-    (toobusy.smoothingFactor()).should.equal(1/3);
-    done();
+
+  setupSmoothingFactorTests({
+    function: toobusy.smoothingFactorOnRise,
+    suiteName: 'on rise',
+    default: 1/3
   });
-  it('should throw an exception for invalid values', function(done) {
-    (function() { toobusy.smoothingFactor(0); }).should.throw;
-    (function() { toobusy.smoothingFactor(2); }).should.throw;
-    (function() { toobusy.smoothingFactor(-1); }).should.throw;
-    (function() { toobusy.smoothingFactor(1); }).should.not.throw;
-    done();
+
+  setupSmoothingFactorTests({
+    function: toobusy.smoothingFactorOnFall,
+    suiteName: 'on fall',
+    default: 1 - 1/3
   });
-  it('should be configurable', function(done) {
-    (toobusy.smoothingFactor(0.9)).should.equal(0.9);
-    (toobusy.smoothingFactor(0.1)).should.equal(0.1);
-    (toobusy.smoothingFactor()).should.equal(0.1);
-    done();
-  });
-  it('should allow no dampening', function(done) {
+
+  it('should allow no dampening', function (done) {
     var cycles_to_toobusy = 0;
-    toobusy.smoothingFactor(1); // no dampening
+    toobusy.smoothingFactorOnRise(1); // no dampening
+    toobusy.smoothingFactorOnFall(1); // no dampening
 
     function load() {
       if (toobusy()) {
@@ -180,9 +181,9 @@ describe('smoothingFactor', function() {
 
     load();
   });
-  it('should respect larger dampening factors', function(done) {
+  it('should respect larger dampening factors', function (done) {
     var cycles_to_toobusy = 0;
-    toobusy.smoothingFactor(0.05);
+    toobusy.smoothingFactorOnRise(0.05);
 
     function load() {
       if (toobusy()) {
@@ -196,7 +197,32 @@ describe('smoothingFactor', function() {
 
     load();
   });
+
 });
+
+function setupSmoothingFactorTests(options) {
+  var smoothingFunc = options.function;
+
+  describe(options.suiteName, function() {
+    it('should default to ' + options.default, function(done) {
+      (smoothingFunc()).should.equal(options.default);
+      done();
+    });
+    it('should throw an exception for invalid values', function(done) {
+      (function() { smoothingFunc(0); }).should.throw;
+      (function() { smoothingFunc(2); }).should.throw;
+      (function() { smoothingFunc(-1); }).should.throw;
+      (function() { smoothingFunc(1); }).should.not.throw;
+      done();
+    });
+    it('should be configurable', function(done) {
+      (smoothingFunc(0.9)).should.equal(0.9);
+      (smoothingFunc(0.1)).should.equal(0.1);
+      (smoothingFunc()).should.equal(0.1);
+      done();
+    });
+  });
+};
 
 describe('started', function() {
   it('should return false after shutdown', function(done) {

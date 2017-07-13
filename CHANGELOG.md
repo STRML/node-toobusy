@@ -1,3 +1,13 @@
+### 0.6.3
+  * Update example.js. Thanks @khalidsalomao
+
+### 0.6.2
+  * New example and improvements in package.json. Thanks @khalidsalomao
+
+### 0.6.1
+  * New smoothing factor to be used when lag is falling
+  * Isolate logic of currentLag in an overwritable function
+
 ### 0.5.1
   * Set `onLag` default threshould to `maxLag()`. Thanks @flentini
 
