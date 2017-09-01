@@ -149,7 +149,7 @@ function start() {
   checkInterval = setInterval(function(){
     // using hrtime instead of using the machine's datetime to avoid clock drifts.
     var hrLag = process.hrtime(lastTime);
-    var lag = hrLag[1] / 1000000; // Get the lag in milliseconds.
+    var lag = hrLag[0] * 1e3 + hrLag[1] / 1e6; // Get the lag in milliseconds.
     lag = Math.max(0, lag - interval);
     // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
     currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
