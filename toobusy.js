@@ -19,7 +19,7 @@ var SMOOTHING_FACTOR = 1/3;
 // Vars
 //
 
-var lastTime = Date.now();
+var lastTime = process.hrtime();
 var highWater = STANDARD_HIGHWATER;
 var interval = STANDARD_INTERVAL;
 var smoothingFactor = SMOOTHING_FACTOR;
@@ -147,12 +147,13 @@ toobusy.onLag = function (fn, threshold) {
  */
 function start() {
   checkInterval = setInterval(function(){
-    var now = Date.now();
-    var lag = now - lastTime;
+    // using hrtime instead of using the machine's datetime to avoid clock drifts.
+    var hrLag = process.hrtime(lastTime);
+    var lag = hrLag[0] * 1e3 + hrLag[1] / 1e6; // Get the lag in milliseconds.
     lag = Math.max(0, lag - interval);
     // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
     currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
-    lastTime = now;
+    lastTime = process.hrtime();
 
     if (lagEventThreshold !== -1 && currentLag > lagEventThreshold) {
       eventEmitter.emit(LAG_EVENT, currentLag);
