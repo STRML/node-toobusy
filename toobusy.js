@@ -22,7 +22,8 @@ var SMOOTHING_FACTOR = 1/3;
 var lastTime;
 var highWater = STANDARD_HIGHWATER;
 var interval = STANDARD_INTERVAL;
-var smoothingFactor = SMOOTHING_FACTOR;
+var smoothingFactorOnRise = SMOOTHING_FACTOR;
+var smoothingFactorOnFall = 1 - SMOOTHING_FACTOR;
 var currentLag = 0;
 var checkInterval;
 var lagEventThreshold = -1;
@@ -38,6 +39,17 @@ var toobusy = function(){
   // we will always block.
   var pctToBlock = (currentLag - highWater) / highWater;
   return Math.random() < pctToBlock;
+};
+
+/**
+ * Resets variables to their default values
+ * Affected variables: highWater, interval, smoothingFactorOnRise and smoothingFactorOnFall
+ */
+toobusy.reset = function() {
+  highWater = STANDARD_HIGHWATER;
+  interval = STANDARD_INTERVAL;
+  smoothingFactorOnRise = SMOOTHING_FACTOR;
+  smoothingFactorOnFall = 1 - SMOOTHING_FACTOR;
 };
 
 /**
@@ -92,7 +104,24 @@ toobusy.maxLag = function(newLag){
 };
 
 /**
- * Set or get the smoothing factor. Default is 0.3333....
+ *  Private function used to set the two smoothing factors
+ * @param {number} newFactor
+ * @param {boolean} onFallSelector Optional parameter used to selected which factor to set
+ */
+function setSmoothingFactor(newFactor, onFallSelector){
+  if (typeof newFactor !== "number") throw new Error("NewFactor must be a number.");
+  if(newFactor <= 0 || newFactor > 1) throw new Error("Smoothing factor should be in range ]0,1].");
+
+  if (onFallSelector) {
+    smoothingFactorOnFall = newFactor;
+  } else {
+    smoothingFactorOnRise = newFactor;
+  }
+};
+
+/**
+ * Set or get the smoothing factor on rise. Default is 0.3333....
+ * This is the factor applied when the measured lag is higher than currentLag
  *
  * The smoothing factor per the standard exponential smoothing formula "αtn + (1-α)tn-1"
  * See: https://en.wikipedia.org/wiki/Exponential_smoothing
@@ -100,14 +129,23 @@ toobusy.maxLag = function(newLag){
  * @param  {Number} [newFactor] New smoothing factor.
  * @return {Number}             New or existing smoothing factor.
  */
-toobusy.smoothingFactor = function(newFactor){
-  if(!newFactor) return smoothingFactor;
+toobusy.smoothingFactorOnRise = function(newFactor) {
+  if(!newFactor) return smoothingFactorOnRise;
+  setSmoothingFactor(newFactor);
+  return smoothingFactorOnRise;
+};
 
-  if (typeof newFactor !== "number") throw new Error("NewFactor must be a number.");
-  if(newFactor <= 0 || newFactor > 1) throw new Error("Smoothing factor should be in range ]0,1].");
-
-  smoothingFactor = newFactor;
-  return smoothingFactor;
+/**
+ * Set or get the smoothing factor on fall. Default is 0.6666....
+ * This is the factor applied when the measured lag is lower than currentLag
+ *
+ * @param  {Number} [newFactor] New smoothing factor.
+ * @return {Number}             New or existing smoothing factor.
+ */
+toobusy.smoothingFactorOnFall = function(newFactor) {
+  if(!newFactor) return smoothingFactorOnFall;
+  setSmoothingFactor(newFactor, true);
+  return smoothingFactorOnFall;
 };
 
 /**
@@ -144,6 +182,19 @@ toobusy.onLag = function (fn, threshold) {
 };
 
 /**
+ * Calculates the new value that will be assigned to currentLag
+ * Overwrite this function if you need a different behavior
+ * @param {number} lag The last measured lag
+ * @param {number} cLag The currentLag value
+ * @param {number} sFactor The smoothingFactor value
+ * @return {number} The calculated value
+ */
+toobusy.lagFunction = function (lag, cLag, sFactorRise, sFactorFall) {
+    var factor = lag > cLag ? sFactorRise : sFactorFall;
+    return factor * lag + (1 - factor) * cLag;
+}
+
+/**
  * Private - starts checking lag.
  */
 function start() {
@@ -154,8 +205,7 @@ function start() {
     var now = Date.now();
     var lag = now - lastTime;
     lag = Math.max(0, lag - interval);
-    // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
-    currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
+    currentLag = toobusy.lagFunction(lag, currentLag, smoothingFactorOnRise, smoothingFactorOnFall);
     lastTime = now;
 
     if (lagEventThreshold !== -1 && currentLag > lagEventThreshold) {
