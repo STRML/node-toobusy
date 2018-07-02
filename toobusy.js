@@ -8,6 +8,8 @@ var events = require('events');
 var STANDARD_HIGHWATER = 70;
 var STANDARD_INTERVAL = 500;
 var LAG_EVENT = "LAG_EVENT";
+var EASING_EVENT = "EASING_EVENT";
+var STANDARD_LAGS = 1;
 
 // A dampening factor.  When determining average calls per second or
 // current lag, we weigh the current value against the previous value 2:1
@@ -23,6 +25,7 @@ var lastTime;
 var highWater = STANDARD_HIGHWATER;
 var interval = STANDARD_INTERVAL;
 var smoothingFactor = SMOOTHING_FACTOR;
+var successiveLags = STANDARD_LAGS;
 var currentLag = 0;
 var checkInterval;
 var lagEventThreshold = -1;
@@ -92,6 +95,24 @@ toobusy.maxLag = function(newLag){
 };
 
 /**
+ * Set or get the current consecutive lags threshold. Default is 1.
+ *
+ * This parameter allows one to specify how many consecutive lag spikes are required to trigger a lag event.
+ * The default is 1, (I.E. Whenever a lag spike occurs it fires the lag event).
+ * @param  {Number} [threshold] New consecutiveLags threshold.
+ * @return {Number}          New or consecutiveLags threshold.
+ */
+toobusy.consecutiveLags = function(threshold){
+  if(!threshold) return successiveLags;
+
+  if (typeof threshold !== "number") throw new Error("threshold must be a number.");
+  threshold = Math.round(threshold);
+
+  successiveLags = threshold;
+  return successiveLags;
+};
+
+/**
  * Set or get the smoothing factor. Default is 0.3333....
  *
  * The smoothing factor per the standard exponential smoothing formula "αtn + (1-α)tn-1"
@@ -144,22 +165,41 @@ toobusy.onLag = function (fn, threshold) {
 };
 
 /**
+ * Registers an event listener for easing events.
+ * @param {Function}  fn  Function of form onEasing() => void
+ */
+toobusy.onEasing = function (fn) {
+  eventEmitter.on(EASING_EVENT, fn);
+};
+
+/**
  * Private - starts checking lag.
  */
 function start() {
-  lastTime = Date.now();
-
-  clearInterval(checkInterval);
+  var isLagging = false;
+  var lagTicks = 0;
   checkInterval = setInterval(function(){
     var now = Date.now();
     var lag = now - lastTime;
     lag = Math.max(0, lag - interval);
     // Dampen lag. See SMOOTHING_FACTOR initialization at the top of this file.
-    currentLag = smoothingFactor * lag + (1 - smoothingFactor) * currentLag;
+    currentLag = (smoothingFactor * lag + (1 - smoothingFactor) * currentLag) || 0;
     lastTime = now;
 
-    if (lagEventThreshold !== -1 && currentLag > lagEventThreshold) {
-      eventEmitter.emit(LAG_EVENT, currentLag);
+    if (lagEventThreshold !== -1 && currentLag > lagEventThreshold && isLagging == false) {
+      lagTicks += 1;
+      if (lagTicks > successiveLags - 1) {
+        isLagging = true;
+        eventEmitter.emit(LAG_EVENT, currentLag);
+      }
+    } else {
+      if (lagTicks > 0 && (lagTicks - 1) == 0 && isLagging) {
+        isLagging = false;
+        eventEmitter.emit(EASING_EVENT, currentLag);
+      }
+      if (lagTicks > 0) {
+        lagTicks -= 1;
+      }
     }
 
   }, interval);
