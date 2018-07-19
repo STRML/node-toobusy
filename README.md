@@ -44,13 +44,11 @@ var toobusy = require('toobusy-js'),
 var app = express();
 
 // middleware which blocks requests when we're too busy
-app.use(function(req, res, next) {
-  if (toobusy()) {
-    res.send(503, "I'm busy right now, sorry.");
-  } else {
-    next();
-  }
-});
+app.use((req, res, next) => {
+  if(toobusy())
+    return res.send(503, "I'm busy right now, sorry.")
+  next()
+})
 
 app.get('/', function(req, res) {
   // processing the request requires some work!
